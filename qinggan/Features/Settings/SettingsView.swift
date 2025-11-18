@@ -18,9 +18,9 @@ struct SettingsView: View {
                             Image(systemName: "person.fill").foregroundColor(AppTheme.brand)
                         }
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("健康追踪者").foregroundColor(.white).font(.title3).fontWeight(.semibold)
-                            Text("当前体重: \(vm.currentWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  目标体重: \(vm.config.targetWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  已减: \(vm.weightLost.map{ String(format: "%.1f", $0) } ?? "-") kg")
-                                .foregroundColor(.white.opacity(0.95)).font(.footnote)
+                            Text("Tuple").foregroundColor(.white).font(.title2).fontWeight(.semibold)
+                            Text("当前体重: \(vm.currentWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  目标体重: \(vm.config.targetWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  需要减: \(vm.weightLost.map{ String(format: "%.1f", $0) } ?? "-") kg")
+                                .foregroundColor(.white.opacity(0.95)).font(.subheadline)
                         }
                         Spacer()
                     }

@@ -27,6 +27,7 @@ final class DietRepository {
         }
         dr.setValue(set, forKey: "items")
         try context.save()
+        NotificationCenter.default.post(name: AppEvents.dataDidChange, object: nil)
     }
     func fetch(range: ClosedRange<Date>) throws -> [DietRecordModel] {
         let req = NSFetchRequest<NSManagedObject>(entityName: "DietRecord")
@@ -59,5 +60,45 @@ final class DietRepository {
             list.append(DietRecordModel(id: id, timestamp: ts, mealType: mt, imagePath: ip, aiRawJSON: raw, notes: notes, items: items))
         }
         return list
+    }
+    func delete(id: UUID) throws {
+        let req = NSFetchRequest<NSManagedObject>(entityName: "DietRecord")
+        req.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        if let obj = try context.fetch(req).first {
+            if let set = obj.value(forKey: "items") as? NSSet {
+                for e in set.allObjects { if let mo = e as? NSManagedObject { context.delete(mo) } }
+            }
+            context.delete(obj)
+            try context.save()
+            NotificationCenter.default.post(name: AppEvents.dataDidChange, object: nil)
+        }
+    }
+    func update(_ record: DietRecordModel) throws {
+        let req = NSFetchRequest<NSManagedObject>(entityName: "DietRecord")
+        req.predicate = NSPredicate(format: "id == %@", record.id as CVarArg)
+        if let obj = try context.fetch(req).first {
+            obj.setValue(record.timestamp, forKey: "timestamp")
+            obj.setValue(Int16(record.mealType.rawValue), forKey: "mealType")
+            obj.setValue(record.imagePath, forKey: "imagePath")
+            obj.setValue(record.aiRawJSON, forKey: "aiRawJSON")
+            obj.setValue(record.notes, forKey: "notes")
+            if let set = obj.value(forKey: "items") as? NSSet { for e in set.allObjects { if let mo = e as? NSManagedObject { context.delete(mo) } } }
+            var newSet = Set<NSManagedObject>()
+            for it in record.items {
+                let fi = NSEntityDescription.insertNewObject(forEntityName: "FoodItem", into: context)
+                fi.setValue(it.id, forKey: "id")
+                fi.setValue(it.name, forKey: "name")
+                fi.setValue(it.weight, forKey: "weight")
+                fi.setValue(it.kcal, forKey: "kcal")
+                fi.setValue(it.protein, forKey: "protein")
+                fi.setValue(it.fat, forKey: "fat")
+                fi.setValue(it.carb, forKey: "carb")
+                fi.setValue(obj, forKey: "dietRecord")
+                newSet.insert(fi)
+            }
+            obj.setValue(newSet, forKey: "items")
+            try context.save()
+            NotificationCenter.default.post(name: AppEvents.dataDidChange, object: nil)
+        }
     }
 }

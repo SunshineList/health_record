@@ -5,7 +5,6 @@ import Combine
 @MainActor final class DashboardViewModel: ObservableObject {
     @Published var range: Int = 7
     @Published var weightTrend: [(Date, Double)] = []
-    @Published var waistTrend: [(Date, Double)] = []
     @Published var stepTrend: [StepStatModel] = []
     @Published var kcalBars: [(Date, Double)] = []
     private let healthKit = HealthKitService()
@@ -31,18 +30,22 @@ import Combine
             kcalBars = sorted.map { ($0, dict[$0] ?? 0) }
         }
         let bRepo = BodyRepository(context: context)
-        if let bodies = try? bRepo.fetch(range: r) {
-            weightTrend = bodies.compactMap { rec in
-                if let w = rec.weight { return (rec.date, w) } else { return nil }
+        weightTrend = []
+        if let bodies = try? bRepo.fetchAll() {
+            let cal = Calendar.current
+            var daily: [Date: Double] = [:]
+            for rec in bodies {
+                if let w = rec.weight {
+                    let d = cal.startOfDay(for: rec.date)
+                    daily[d] = w
+                }
             }
-            waistTrend = bodies.compactMap { rec in
-                if let w = rec.waist { return (rec.date, w) } else { return nil }
-            }
-            if let firstW = weightTrend.first?.1, let lastW = weightTrend.last?.1, let firstWa = waistTrend.first?.1, let lastWa = waistTrend.last?.1 {
+            let days = daily.keys.sorted()
+            weightTrend = days.map { ($0, daily[$0] ?? 0) }
+            if let firstW = weightTrend.first?.1, let lastW = weightTrend.last?.1, !weightTrend.isEmpty {
                 let dw = lastW - firstW
-                let dWa = lastWa - firstWa
                 let avgSteps = Int(stepTrend.map{ $0.steps }.reduce(0, +) / max(1, stepTrend.count))
-                summaryText = "过去 \(range) 天，体重变化 \(String(format: "%.1f", dw)) kg，腰围变化 \(String(format: "%.1f", dWa)) cm，平均步数 \(avgSteps)。"
+                summaryText = "过去 \(range) 天，体重变化 \(String(format: "%.1f", dw)) kg，平均步数 \(avgSteps)。"
             }
         }
     }

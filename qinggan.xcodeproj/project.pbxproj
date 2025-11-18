@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		6808AA582ECB1B3900C5D0E9 /* qinggan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = qinggan.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6808AA582ECB1B3900C5D0E9 /* 青柑.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "青柑.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		6808AA592ECB1B3900C5D0E9 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6808AA582ECB1B3900C5D0E9 /* qinggan.app */,
+				6808AA582ECB1B3900C5D0E9 /* 青柑.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,7 +67,7 @@
 			packageProductDependencies = (
 			);
 			productName = qinggan;
-			productReference = 6808AA582ECB1B3900C5D0E9 /* qinggan.app */;
+			productReference = 6808AA582ECB1B3900C5D0E9 /* 青柑.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -257,11 +257,12 @@
 				DEVELOPMENT_TEAM = 5U6G6FT3GS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "青柑";
+				INFOPLIST_KEY_NSCameraUsageDescription = "拍照识别卡路里";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "读取步数用于达标提醒与趋势展示";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "读取步数用于达标提醒与趋势展示";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -293,11 +294,12 @@
 				DEVELOPMENT_TEAM = 5U6G6FT3GS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "青柑";
+				INFOPLIST_KEY_NSCameraUsageDescription = "拍照识别卡路里";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "读取步数用于达标提醒与趋势展示";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "读取步数用于达标提醒与趋势展示";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;

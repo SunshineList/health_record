@@ -10,6 +10,7 @@ import Combine
     @Published var attachSummary: Bool = false
     @Published var sending: Bool = false
     @Published var isLoadingHistory: Bool = false
+    @Published var streamingTick: Int = 0
     private var oldestDate: Date?
     private let healthKit = HealthKitService()
     func loadHistory(context: NSManagedObjectContext) async {
@@ -64,9 +65,10 @@ import Combine
         let cal = Calendar.current
         let end = cal.startOfDay(for: Date())
         let start = cal.date(byAdding: .day, value: -6, to: end) ?? end
+        let endPlus = cal.date(byAdding: .day, value: 1, to: end)!
         let dietRepo = DietRepository(context: context)
         var totalKcal: Double = 0
-        if let records = try? dietRepo.fetch(range: start...end) {
+        if let records = try? dietRepo.fetch(range: start...endPlus) {
             totalKcal = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
         }
         var avgSteps = 0
@@ -78,7 +80,7 @@ import Combine
         let bodyRepo = BodyRepository(context: context)
         var avgWeight: Double?
         var avgWaist: Double?
-        if let bodies = try? bodyRepo.fetch(range: start...end) {
+        if let bodies = try? bodyRepo.fetch(range: start...endPlus) {
             let weights = bodies.compactMap { $0.weight }
             let waists = bodies.compactMap { $0.waist }
             if !weights.isEmpty { avgWeight = weights.reduce(0, +) / Double(weights.count) }
@@ -97,12 +99,12 @@ import Combine
         sending = true
         let summary = attachSummary ? await buildSummary(context: context) : nil
         if let resp = try? await client.sendChat(messages: messages, summary: summary, config: cfg) {
-            var reply = AIMessage(role: .assistant, content: "", date: Date())
+            let reply = AIMessage(role: .assistant, content: "", date: Date())
             messages.append(reply)
             if let _ = try? ChatRepository(context: context).save(reply, threadId: currentThreadId) {}
             let id = reply.id
             for ch in resp.text {
-                if let lastIndex = messages.indices.last { messages[lastIndex].content.append(ch) }
+                if let lastIndex = messages.indices.last { messages[lastIndex].content.append(ch); streamingTick &+= 1 }
                 try? await Task.sleep(nanoseconds: 25_000_000)
             }
             try? ChatRepository(context: context).updateMessage(id: id, newContent: messages.last?.content ?? resp.text)

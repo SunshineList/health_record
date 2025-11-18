@@ -9,13 +9,16 @@ import Combine
     @Published var recent7Steps: [StepStatModel] = []
     @Published var recent30Steps: [StepStatModel] = []
     @Published var todayKcal: Double = 0
+    @Published var todayMealsCount: Int = 0
     @Published var observationText: String = "今天表现不错！坚持控制热量与活动。"
+    @Published var isRefreshingObservation: Bool = false
     @Published var weightTrend: [(Date, Double)] = []
     @Published var currentWeight: Double?
     @Published var calorieTarget: Int = 1800
     private let healthKit = HealthKitService()
     private let notifications = NotificationManager()
     private var settingsObserver: AnyCancellable?
+    private var dataObserver: AnyCancellable?
     func loadDashboardSummary() async {
         let cfg = ConfigStore.shared.load()
         goal = cfg.dailyStepGoal
@@ -37,16 +40,23 @@ import Combine
         let start = cal.startOfDay(for: Date())
         let end = cal.date(byAdding: .day, value: 1, to: start)!
         if let records = try? repo.fetch(range: start...end) {
+            todayMealsCount = records.count
             todayKcal = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
         }
     }
     func loadWeight(context: NSManagedObjectContext) {
         let bRepo = BodyRepository(context: context)
         let cal = Calendar.current
-        let end = cal.startOfDay(for: Date())
-        let start = cal.date(byAdding: .day, value: -6, to: end) ?? end
-        if let bodies = try? bRepo.fetch(range: start...end) {
-            weightTrend = bodies.compactMap { rec in if let w = rec.weight { return (rec.date, w) } else { return nil } }
+        if let bodies = try? bRepo.fetchAll() {
+            var daily: [Date: Double] = [:]
+            for rec in bodies {
+                if let w = rec.weight {
+                    let d = cal.startOfDay(for: rec.date)
+                    daily[d] = w // 取当天最后一次写入的体重
+                }
+            }
+            let days = daily.keys.sorted()
+            weightTrend = days.map { ($0, daily[$0] ?? 0) }
             currentWeight = bodies.last?.weight
         }
     }
@@ -76,22 +86,34 @@ import Combine
         }
         return HealthSummary(totalKcal: totalKcal, avgSteps: avgSteps, avgWeight: avgWeight, avgWaist: avgWaist)
     }
-    func generateObservation(context: NSManagedObjectContext) async {
+    func generateObservation(context: NSManagedObjectContext, force: Bool = false) async {
         let cfg = ConfigStore.shared.load()
         guard cfg.allowSummary else { return }
-        if let cached = ObservationStore.shared.load(for: Date()) { observationText = cached; return }
+        if !force, let cached = ObservationStore.shared.load(for: Date()) { observationText = cached; return }
+        isRefreshingObservation = true
+        defer { isRefreshingObservation = false }
         let client = AIClient(host: cfg.host)
         let summary = await buildSummary(context: context)
         let msg = AIMessage(role: .user, content: "请根据最近7天的饮食热量、步数、体重与腰围，生成一段中文的今日观察，语气温和、鼓励，控制在两至三句话。", date: Date())
         if let resp = try? await client.sendChat(messages: [msg], summary: summary, config: cfg) { observationText = resp.text; ObservationStore.shared.save(resp.text, for: Date()) }
     }
     func scheduleReminders() async {
-        do { try await notifications.requestPermission(); notifications.scheduleDailyReminders(goal: goal, current: todaySteps) } catch {}
+        do {
+            try await notifications.requestPermission()
+            notifications.scheduleDailyReminders(goal: goal, current: todaySteps)
+            notifications.scheduleMealReminders()
+            notifications.scheduleHydrationReminders()
+            notifications.scheduleWeightReminder()
+        } catch {}
     }
     func startObserveSettingsChanges() {
         settingsObserver = NotificationCenter.default.publisher(for: SettingsViewModel.settingsDidChange).sink { [weak self] _ in
             guard let self else { return }
             Task { await self.loadDashboardSummary(); await self.refreshTodayKcal(context: PersistenceController.shared.container.viewContext); self.loadWeight(context: PersistenceController.shared.container.viewContext); await self.generateObservation(context: PersistenceController.shared.container.viewContext) }
+        }
+        dataObserver = NotificationCenter.default.publisher(for: AppEvents.dataDidChange).sink { [weak self] _ in
+            guard let self else { return }
+            Task { await self.refreshTodayKcal(context: PersistenceController.shared.container.viewContext); self.loadWeight(context: PersistenceController.shared.container.viewContext) }
         }
     }
 }

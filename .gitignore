@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.moved-aside
+*.xccheckout
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# Swift Package Manager
+/.build/
+/Packages/
+**/*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+**/*.xcodeproj/xcshareddata/swiftpm
+
+# CocoaPods
+/Pods/
+Podfile.lock
+
+# Carthage
+/Carthage/Build/
+
+# Fastlane
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/screenshots/
+/fastlane/test_output/
+
+# Logs
+*.log
+
+# Env/config
+.env
+.env.*
+Secrets.plist
+
+# Generated artifacts
+*.generated.*
+
+.trae
