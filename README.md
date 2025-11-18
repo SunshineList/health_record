@@ -189,10 +189,6 @@ open qinggan.xcodeproj
 3. 使用 Repository 模式访问数据
 4. 在 `AppRootView.swift` 中添加新的 Tab
 
-## 📄 许可证
-
-[在此添加许可证信息]
-
 ## 👥 贡献
 
 欢迎提交 Issue 和 Pull Request！
