@@ -10,7 +10,8 @@ struct BodyRecordModel: Identifiable, Codable { var id = UUID(); var date: Date;
 
 struct StepStatModel: Identifiable, Codable { var id = UUID(); var date: Date; var steps: Int }
 
-struct AIConfig: Codable { var host: String; var textModel: String; var visionModel: String; var allowVision: Bool; var allowSummary: Bool; var dailyStepGoal: Int; var targetWeight: Double?; var dailyCalorieTarget: Int }
+struct AIConfig: Codable { var host: String; var textModel: String; var visionModel: String; var allowVision: Bool; var allowSummary: Bool; var dailyStepGoal: Int; var targetWeight: Double?; var dailyCalorieTarget: Int; var appearance: String? }
+struct AppearanceConfig: Codable { var appearance: String? }
 
 enum AIMessageRole: String, Codable { case system, user, assistant }
 

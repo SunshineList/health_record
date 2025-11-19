@@ -79,11 +79,14 @@ final class AIClient: AIClientProtocol {
         let apiKey = KeychainService.shared.getAPIKey()
         var arr: [[String: Any]] = []
         var content = "你是一位资深健康生活方式专家（营养🥗、运动🏃‍♂️、睡眠🛌、压力管理🧘、行为改变🔁）。请基于用户最近数据与提问，给出具体、可执行、温和的中文建议：\n1）不做医疗诊断与药物建议❌；\n2）建议包含量化目标（数值/时间窗口/频次），示例：‘晚间散步20分钟，每周5次’📅；\n3）结构清晰，最多3条要点（每条前置表情符号以增强可读性）✨；\n4）如信息不足，先简短澄清再给出可行默认方案🤝；\n5）避免夸大承诺与绝对化措辞⚖️。"
-        if let summary { content += "\n用户最近数据：\n- 总热量：\(summary.totalKcal)千卡\n- 日均步长：\(summary.avgSteps)步\n- 日均体重：\(summary.avgWeight)公斤\n" }
+        if let s = summary {
+            let w = s.avgWeight.map { String(format: "%.1f", $0) } ?? "—"
+            content += "\n用户最近数据：\n- 总热量：\(Int(s.totalKcal)) 千卡\n- 日均步数：\(s.avgSteps) 步\n- 日均体重：\(w) kg\n"
+        }
         let systemMsg = ["role": "system", "content": content]
         arr.append(systemMsg)
         for m in messages { arr.append(["role": m.role.rawValue, "content": m.content]) }
-        var payload: [String: Any] = [
+        let payload: [String: Any] = [
             "model": config.textModel,
             "messages": arr
         ]

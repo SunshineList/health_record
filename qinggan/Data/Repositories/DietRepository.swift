@@ -101,4 +101,39 @@ final class DietRepository {
             NotificationCenter.default.post(name: AppEvents.dataDidChange, object: nil)
         }
     }
+    func fetchRecent(limit: Int, before: Date?) throws -> [DietRecordModel] {
+        let req = NSFetchRequest<NSManagedObject>(entityName: "DietRecord")
+        var predicates: [NSPredicate] = []
+        if let before { predicates.append(NSPredicate(format: "timestamp < %@", before as NSDate)) }
+        if !predicates.isEmpty { req.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates) }
+        req.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
+        req.fetchLimit = limit
+        let objs = try context.fetch(req)
+        var list: [DietRecordModel] = []
+        for o in objs {
+            let id = o.value(forKey: "id") as? UUID ?? UUID()
+            let ts = o.value(forKey: "timestamp") as? Date ?? Date()
+            let mt = MealType(rawValue: Int(o.value(forKey: "mealType") as? Int16 ?? 0)) ?? .breakfast
+            let ip = o.value(forKey: "imagePath") as? String
+            let raw = o.value(forKey: "aiRawJSON") as? Data
+            let notes = o.value(forKey: "notes") as? String ?? ""
+            var items: [FoodItemModel] = []
+            if let set = o.value(forKey: "items") as? NSSet {
+                for e in set.allObjects {
+                    if let mo = e as? NSManagedObject {
+                        let fid = mo.value(forKey: "id") as? UUID ?? UUID()
+                        let name = mo.value(forKey: "name") as? String ?? ""
+                        let weight = mo.value(forKey: "weight") as? Double ?? 0
+                        let kcal = mo.value(forKey: "kcal") as? Double ?? 0
+                        let protein = mo.value(forKey: "protein") as? Double ?? 0
+                        let fat = mo.value(forKey: "fat") as? Double ?? 0
+                        let carb = mo.value(forKey: "carb") as? Double ?? 0
+                        items.append(FoodItemModel(id: fid, name: name, weight: weight, kcal: kcal, protein: protein, fat: fat, carb: carb))
+                    }
+                }
+            }
+            list.append(DietRecordModel(id: id, timestamp: ts, mealType: mt, imagePath: ip, aiRawJSON: raw, notes: notes, items: items))
+        }
+        return list
+    }
 }

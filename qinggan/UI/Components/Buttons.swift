@@ -3,6 +3,7 @@ import SwiftUI
 struct PrimaryButton: View {
     let title: String
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         Button(action: action) {
             Text(title)
@@ -11,14 +12,16 @@ struct PrimaryButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .background(RoundedRectangle(cornerRadius: 14).fill(AppTheme.brand))
-        .shadow(color: AppTheme.brand.opacity(0.25), radius: 8, x: 0, y: 4)
+        .background(RoundedRectangle(cornerRadius: 18).fill(LinearGradient(colors: [AppTheme.brandDark, AppTheme.brand], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.0)))
+        .shadow(color: AppTheme.brand.opacity(0.16), radius: 6, x: 0, y: 3)
     }
 }
 
 struct SecondaryButton: View {
     let title: String
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         Button(action: action) {
             Text(title)
@@ -27,20 +30,21 @@ struct SecondaryButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.2)))
-    }
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.brand.opacity(0.25)))
+}
 }
 
 struct PrimaryLabel: View {
     let title: String
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         Text(title)
             .font(.headline)
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 14).fill(AppTheme.brand))
+            .background(RoundedRectangle(cornerRadius: 18).fill(LinearGradient(colors: [AppTheme.brandDark, AppTheme.brand], startPoint: .topLeading, endPoint: .bottomTrailing)))
     }
 }
 
@@ -52,7 +56,7 @@ struct SecondaryLabel: View {
             .foregroundColor(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.2)))
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.brand.opacity(0.25)))
     }
 }

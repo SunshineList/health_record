@@ -80,13 +80,13 @@ struct LogView: View {
                 }
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            Text("历史记录").font(.headline)
-                            Spacer()
-                            Chip(title: "近7天", selected: vm.historyRangeDays == 7) { vm.historyRangeDays = 7; vm.loadHistory(context: viewContext) }
-                            Chip(title: "近30天", selected: vm.historyRangeDays == 30) { vm.historyRangeDays = 30; vm.loadHistory(context: viewContext) }
-                            Chip(title: "近90天", selected: vm.historyRangeDays == 90) { vm.historyRangeDays = 90; vm.loadHistory(context: viewContext) }
-                        }
+                        // HStack(spacing: 8) {
+                        //     Text("历史记录").font(.headline)
+                        //     Spacer()
+                        //     Chip(title: "近7天", selected: vm.historyRangeDays == 7) { vm.historyRangeDays = 7; vm.loadHistory(context: viewContext) }
+                        //     Chip(title: "近30天", selected: vm.historyRangeDays == 30) { vm.historyRangeDays = 30; vm.loadHistory(context: viewContext) }
+                        //     Chip(title: "近90天", selected: vm.historyRangeDays == 90) { vm.historyRangeDays = 90; vm.loadHistory(context: viewContext) }
+                        // }
                         VStack(spacing: 8) {
                             Picker("餐别", selection: $vm.mealFilter) {
                                 Text("全部").tag(MealType?.none)
@@ -97,11 +97,18 @@ struct LogView: View {
                             }.pickerStyle(.segmented)
                             TextField("搜索食物名或备注", text: $vm.searchQuery).textFieldStyle(.roundedBorder)
                         }
-                        if groups.isEmpty {
+                        let pagedGroups = vm.groupedHistoryPaged()
+                        HStack(spacing: 8) {
+                            Chip(title: "近7天", selected: vm.searchDays == 7) { vm.searchDays = 7 }
+                            Chip(title: "近30天", selected: vm.searchDays == 30) { vm.searchDays = 30 }
+                            Chip(title: "近90天", selected: vm.searchDays == 90) { vm.searchDays = 90 }
+                        }
+                        .padding(.bottom, 4)
+                        if pagedGroups.isEmpty {
                             Text("暂无历史饮食记录").foregroundColor(.secondary).padding(.vertical, 16)
                         } else {
-                            ForEach(groups, id: \.0) { day, records in
-                                VStack(alignment: .leading, spacing: 10) {
+                            LazyVStack(alignment: .leading, spacing: 10) {
+                                ForEach(pagedGroups, id: \.0) { day, records in
                                     let total = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
                                     HStack { Text(chineseDay(day)).font(.subheadline).fontWeight(.semibold); Spacer(); Text("合计 \(Int(total)) kcal").foregroundColor(.secondary) }
                                     ForEach(records) { rec in
@@ -110,6 +117,11 @@ struct LogView: View {
                                     }
                                 }
                                 .padding(.vertical, 6)
+                                HStack {
+                                    Spacer()
+                                    Button(action: { vm.loadHistoryMore(context: viewContext) }) { Text(vm.historyLoading ? "加载中..." : (vm.historyHasMore ? "加载更多" : "没有更多了")) }
+                                    Spacer()
+                                }
                             }
                         }
                     }
@@ -125,10 +137,10 @@ struct LogView: View {
         }
         .onChange(of: vm.recordTime) { _, _ in vm.syncMealTypeWithRecordTime() }
         .task { vm.loadTodayRecords(context: viewContext) }
-        .task { vm.loadHistory(context: viewContext) }
+        .task { vm.loadHistoryInitial(context: viewContext) }
         .onReceive(NotificationCenter.default.publisher(for: AppEvents.dataDidChange)) { _ in
             vm.loadTodayRecords(context: viewContext)
-            vm.loadHistory(context: viewContext)
+            vm.loadHistoryInitial(context: viewContext)
         }
         .sheet(item: $selectedRecord) { rec in
             NavigationView {

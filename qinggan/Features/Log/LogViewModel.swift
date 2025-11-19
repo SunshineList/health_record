@@ -19,6 +19,12 @@ import PhotosUI
     @Published var historyRangeDays: Int = 7
     @Published var mealFilter: MealType? = nil
     @Published var searchQuery: String = ""
+    @Published var searchDays: Int = 7
+    @Published var historyPaged: [DietRecordModel] = []
+    @Published var historyHasMore: Bool = true
+    @Published var historyLoading: Bool = false
+    private var lastHistoryDate: Date?
+    private let historyPageSize: Int = 20
     init() {
         mealType = mealType(for: recordTime)
     }
@@ -83,6 +89,56 @@ import PhotosUI
         let cal = Calendar.current
         var dict: [Date: [DietRecordModel]] = [:]
         for rec in filteredHistory() {
+            let day = cal.startOfDay(for: rec.timestamp)
+            dict[day, default: []].append(rec)
+        }
+        let order: [MealType: Int] = [.breakfast: 0, .lunch: 1, .dinner: 2, .snack: 3]
+        let sortedDays = dict.keys.sorted(by: >)
+        return sortedDays.map { day in
+            let arr = (dict[day] ?? []).sorted { lhs, rhs in
+                if order[lhs.mealType]! == order[rhs.mealType]! { return lhs.timestamp < rhs.timestamp }
+                return order[lhs.mealType]! < order[rhs.mealType]!
+            }
+            return (day, arr)
+        }
+    }
+    func loadHistoryInitial(context: NSManagedObjectContext) {
+        guard !historyLoading else { return }
+        historyLoading = true
+        defer { historyLoading = false }
+        let repo = DietRepository(context: context)
+        if let list = try? repo.fetchRecent(limit: historyPageSize, before: nil) {
+            historyPaged = list
+            lastHistoryDate = historyPaged.last?.timestamp
+            historyHasMore = (list.count == historyPageSize)
+        }
+    }
+    func loadHistoryMore(context: NSManagedObjectContext) {
+        guard !historyLoading, historyHasMore else { return }
+        historyLoading = true
+        defer { historyLoading = false }
+        let repo = DietRepository(context: context)
+        if let list = try? repo.fetchRecent(limit: historyPageSize, before: lastHistoryDate) {
+            historyPaged.append(contentsOf: list)
+            lastHistoryDate = historyPaged.last?.timestamp
+            historyHasMore = (list.count == historyPageSize)
+        }
+    }
+    func groupedHistoryPaged() -> [(Date, [DietRecordModel])] {
+        let cal = Calendar.current
+        var dict: [Date: [DietRecordModel]] = [:]
+        // 先按分页数据做筛选
+        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cutoff = cal.date(byAdding: .day, value: -(searchDays - 1), to: cal.startOfDay(for: Date())) ?? Date()
+        let filtered: [DietRecordModel] = historyPaged.filter { rec in
+            let mealOk = mealFilter.map { rec.mealType == $0 } ?? true
+            if !mealOk { return false }
+            if rec.timestamp < cutoff { return false }
+            if q.isEmpty { return true }
+            let names = rec.items.map { $0.name }.joined(separator: " ")
+            return names.localizedCaseInsensitiveContains(q) || rec.notes.localizedCaseInsensitiveContains(q)
+        }
+        for rec in filtered {
             let day = cal.startOfDay(for: rec.timestamp)
             dict[day, default: []].append(rec)
         }

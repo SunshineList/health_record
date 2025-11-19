@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct AppTheme {
-    static let brand = Color(hex: 0x22C55E)
-    static let brandLight = Color(hex: 0xD1FADF)
+    static let brand = Color(hex: 0x22A06B)
+    static let brandDark = Color(hex: 0x0F7D52)
+    static let brandLight = Color(hex: 0xE6F6EF)
+    static let mint = Color(hex: 0x34D399)
     static let cardShadow = Color.black.opacity(0.05)
 }
 

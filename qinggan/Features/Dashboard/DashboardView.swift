@@ -26,6 +26,7 @@ struct DashboardView: View {
                         if vm.weightTrend.isEmpty {
                             Text("暂无体重数据").foregroundColor(.secondary).padding(.vertical, 24)
                         } else if vm.weightTrend.count == 1, let p = vm.weightTrend.first {
+                            let cal = Calendar.current; let domainStart = p.0; let domainEnd = cal.date(byAdding: .day, value: vm.range, to: domainStart) ?? domainStart
                             Chart {
                                 PointMark(x: .value("日期", p.0), y: .value("体重", p.1))
                                     .foregroundStyle(.purple)
@@ -35,16 +36,17 @@ struct DashboardView: View {
                             }
                             .frame(height: 180)
                             .environment(\.locale, Locale(identifier: "zh_CN"))
+                            .chartXScale(domain: domainStart...domainEnd)
                             .chartYScale(domain: [max(p.1 - 5, 0), p.1 + 5])
                             .chartXAxis {
-                                AxisMarks(values: vm.weightTrend.map { $0.0 }) { value in
-                                    if let date = value.as(Date.self) {
-                                        AxisGridLine()
-                                        AxisValueLabel(chineseDay(date))
-                                    }
+                                let strideDays = vm.range == 7 ? 1 : (vm.range == 30 ? 3 : 6)
+                                let ticks = dateTicks(start: domainStart, end: domainEnd, step: strideDays)
+                                AxisMarks(values: ticks) { value in
+                                    if let date = value.as(Date.self) { AxisGridLine(); AxisValueLabel(shortDay(date)) }
                                 }
                             }
                         } else {
+                            let cal = Calendar.current; let domainStart = vm.weightTrend.first?.0 ?? cal.startOfDay(for: Date()); let domainEnd = cal.date(byAdding: .day, value: vm.range, to: domainStart) ?? domainStart
                             Chart {
                                 ForEach(vm.weightTrend, id: \.0) { it in
                                     LineMark(x: .value("日期", it.0), y: .value("体重", it.1)).foregroundStyle(.purple)
@@ -57,12 +59,12 @@ struct DashboardView: View {
                             }
                             .frame(height: 180)
                             .environment(\.locale, Locale(identifier: "zh_CN"))
+                            .chartXScale(domain: domainStart...domainEnd)
                             .chartXAxis {
-                                AxisMarks(values: vm.weightTrend.map { $0.0 }) { value in
-                                    if let date = value.as(Date.self) {
-                                        AxisGridLine()
-                                        AxisValueLabel(chineseDay(date))
-                                    }
+                                let strideDays = vm.range == 7 ? 1 : (vm.range == 30 ? 3 : 6)
+                                let ticks = dateTicks(start: domainStart, end: domainEnd, step: strideDays)
+                                AxisMarks(values: ticks) { value in
+                                    if let date = value.as(Date.self) { AxisGridLine(); AxisValueLabel(shortDay(date)) }
                                 }
                             }
                         }
@@ -71,18 +73,19 @@ struct DashboardView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("每日热量摄入").font(.headline)
+                        let cal = Calendar.current; let end = cal.startOfDay(for: Date()); let start = cal.date(byAdding: .day, value: -(vm.range - 1), to: end) ?? end; let domainStart = vm.kcalBars.first?.0 ?? start; let domainEnd = cal.date(byAdding: .day, value: vm.range, to: domainStart) ?? domainStart
                         Chart(vm.kcalBars, id: \.0) { it in
                             BarMark(x: .value("date", it.0), y: .value("kcal", it.1)).foregroundStyle(.orange)
                                 .annotation(position: .top) { Text("\(Int(it.1))").font(.caption).foregroundColor(.orange) }
                         }
                         .frame(height: 180)
                         .environment(\.locale, Locale(identifier: "zh_CN"))
+                        .chartXScale(domain: domainStart...domainEnd)
                         .chartXAxis {
-                            AxisMarks(values: vm.kcalBars.map { $0.0 }) { value in
-                                if let date = value.as(Date.self) {
-                                    AxisGridLine()
-                                    AxisValueLabel(chineseDay(date))
-                                }
+                            let strideDays = vm.range == 7 ? 1 : (vm.range == 30 ? 3 : 6)
+                            let ticks = dateTicks(start: domainStart, end: domainEnd, step: strideDays)
+                            AxisMarks(values: ticks) { value in
+                                if let date = value.as(Date.self) { AxisGridLine(); AxisValueLabel(shortDay(date)) }
                             }
                         }
                     }
@@ -90,18 +93,19 @@ struct DashboardView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("每日步数").font(.headline)
+                        let cal = Calendar.current; let end = cal.startOfDay(for: Date()); let start = cal.date(byAdding: .day, value: -(vm.range - 1), to: end) ?? end; let domainStart = vm.stepTrend.first?.date ?? start; let domainEnd = cal.date(byAdding: .day, value: vm.range, to: domainStart) ?? domainStart
                         Chart(vm.stepTrend) { item in
                             BarMark(x: .value("date", item.date), y: .value("steps", item.steps)).foregroundStyle(.blue)
                                 .annotation(position: .top) { Text("\(item.steps)").font(.caption).foregroundColor(.blue) }
                         }
                         .frame(height: 180)
                         .environment(\.locale, Locale(identifier: "zh_CN"))
+                        .chartXScale(domain: domainStart...domainEnd)
                         .chartXAxis {
-                            AxisMarks(values: vm.stepTrend.map { $0.date }) { value in
-                                if let date = value.as(Date.self) {
-                                    AxisGridLine()
-                                    AxisValueLabel(chineseDay(date))
-                                }
+                            let strideDays = vm.range == 7 ? 1 : (vm.range == 30 ? 3 : 6)
+                            let ticks = dateTicks(start: domainStart, end: domainEnd, step: strideDays)
+                            AxisMarks(values: ticks) { value in
+                                if let date = value.as(Date.self) { AxisGridLine(); AxisValueLabel(shortDay(date)) }
                             }
                         }
                     }
@@ -110,7 +114,7 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack { Text("体重记录列表").font(.headline); Spacer() }
                         WeightListView()
-                            .frame(height: 260)
+                            .frame(height: 380)
                     }
                 }
             }.padding(16)
@@ -122,3 +126,11 @@ struct DashboardView: View {
 }
 
 private func chineseDay(_ date: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "zh_CN"); f.dateFormat = "M月d日"; return f.string(from: date) }
+private func shortDay(_ date: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "zh_CN"); f.dateFormat = "MM.dd"; return f.string(from: date) }
+private func dateTicks(start: Date, end: Date, step: Int) -> [Date] {
+    var arr: [Date] = []
+    var cur = start
+    let cal = Calendar.current
+    while cur <= end { arr.append(cur); cur = cal.date(byAdding: .day, value: step, to: cur) ?? cur }
+    return arr
+}

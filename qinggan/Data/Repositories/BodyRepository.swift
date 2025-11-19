@@ -69,4 +69,22 @@ final class BodyRepository {
         }
         return list
     }
+    func fetchRecent(limit: Int, before: Date?) throws -> [BodyRecordModel] {
+        let req = NSFetchRequest<NSManagedObject>(entityName: "BodyRecord")
+        var predicates: [NSPredicate] = []
+        if let before { predicates.append(NSPredicate(format: "date < %@", before as NSDate)) }
+        if !predicates.isEmpty { req.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates) }
+        req.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+        req.fetchLimit = limit
+        let objs = try context.fetch(req)
+        var list: [BodyRecordModel] = []
+        for o in objs {
+            let id = o.value(forKey: "id") as? UUID ?? UUID()
+            let date = o.value(forKey: "date") as? Date ?? Date()
+            let weight = o.value(forKey: "weight") as? Double
+            let waist = o.value(forKey: "waist") as? Double
+            list.append(BodyRecordModel(id: id, date: date, weight: weight, waist: waist))
+        }
+        return list
+    }
 }

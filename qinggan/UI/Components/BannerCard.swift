@@ -4,6 +4,7 @@ struct BannerCard: View {
     let icon: String
     let title: String
     let text: String
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -15,8 +16,12 @@ struct BannerCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(LinearGradient(colors: [AppTheme.brandLight, Color.white], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(colorScheme == .dark ? LinearGradient(colors: [AppTheme.brand.opacity(0.2), Color(.secondarySystemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing) : LinearGradient(colors: [AppTheme.brandLight, Color.white], startPoint: .topLeading, endPoint: .bottomTrailing))
         )
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.06) : Color.gray.opacity(0.12))
+        )
+        .shadow(color: (colorScheme == .dark ? Color.black.opacity(0.3) : Color.black.opacity(0.05)), radius: 8, x: 0, y: 4)
     }
 }

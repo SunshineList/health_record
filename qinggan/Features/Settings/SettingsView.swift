@@ -20,7 +20,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Tuple").foregroundColor(.white).font(.title2).fontWeight(.semibold)
                             Text("当前体重: \(vm.currentWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  目标体重: \(vm.config.targetWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  需要减: \(vm.weightLost.map{ String(format: "%.1f", $0) } ?? "-") kg")
-                                .foregroundColor(.white.opacity(0.95)).font(.subheadline)
+                                .foregroundColor(.white.opacity(0.95)).font(.title2)
                         }
                         Spacer()
                     }
@@ -41,6 +41,17 @@ struct SettingsView: View {
                         Toggle("允许上传食物照片", isOn: $vm.config.allowVision)
                         Toggle("允许发送历史统计", isOn: $vm.config.allowSummary)
                         Text("你的 API Key 仅存储在本地设备，不会上传到任何服务器。").foregroundColor(.secondary).font(.footnote)
+                    }
+                }
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("外观").font(.headline)
+                        Picker("外观", selection: Binding(get: { vm.config.appearance ?? "system" }, set: { vm.config.appearance = $0 })) {
+                            Text("跟随系统").tag("system")
+                            Text("浅色").tag("light")
+                            Text("深色").tag("dark")
+                        }.pickerStyle(.segmented)
+                        Text("你可以在此切换 App 的浅色/深色模式，或跟随系统设置。").foregroundColor(.secondary).font(.footnote)
                     }
                 }
                 Card {
