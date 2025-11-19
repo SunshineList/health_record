@@ -15,6 +15,7 @@ import PhotosUI
     @Published var aiRawJSON: Data?
     @Published var todayRecords: [DietRecordModel] = []
     @Published var recognitionError: String?
+    @Published var isRecognizing: Bool = false
     @Published var historyRecords: [DietRecordModel] = []
     @Published var historyRangeDays: Int = 7
     @Published var mealFilter: MealType? = nil
@@ -23,10 +24,19 @@ import PhotosUI
     @Published var historyPaged: [DietRecordModel] = []
     @Published var historyHasMore: Bool = true
     @Published var historyLoading: Bool = false
+    @Published var historyGroups: [(Date, [DietRecordModel])] = []
     private var lastHistoryDate: Date?
     private let historyPageSize: Int = 20
+    private var cancellables: Set<AnyCancellable> = []
     init() {
         mealType = mealType(for: recordTime)
+        Publishers.CombineLatest3($mealFilter, $searchQuery, $searchDays)
+            .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.historyGroups = self.groupedHistoryPaged()
+            }
+            .store(in: &cancellables)
     }
     func importPhoto() {}
     func runRecognition() async {
@@ -37,6 +47,8 @@ import PhotosUI
         let client = AIClient(host: cfg.host)
         let data = img.pngData() ?? Data()
         do {
+            isRecognizing = true
+            defer { isRecognizing = false }
             let resp = try await client.analyzeImage(data: data, config: cfg)
             recognizedItems = resp.items
             aiRawJSON = resp.rawJSON
@@ -102,6 +114,12 @@ import PhotosUI
             return (day, arr)
         }
     }
+    func mealGroups(for records: [DietRecordModel]) -> [(MealType, [DietRecordModel])] {
+        let order: [MealType: Int] = [.breakfast: 0, .lunch: 1, .dinner: 2, .snack: 3]
+        var dict: [MealType: [DietRecordModel]] = [:]
+        for r in records { dict[r.mealType, default: []].append(r) }
+        return dict.keys.sorted { order[$0]! < order[$1]! }.map { mt in (mt, (dict[mt] ?? []).sorted { $0.timestamp < $1.timestamp }) }
+    }
     func loadHistoryInitial(context: NSManagedObjectContext) {
         guard !historyLoading else { return }
         historyLoading = true
@@ -111,6 +129,7 @@ import PhotosUI
             historyPaged = list
             lastHistoryDate = historyPaged.last?.timestamp
             historyHasMore = (list.count == historyPageSize)
+            historyGroups = groupedHistoryPaged()
         }
     }
     func loadHistoryMore(context: NSManagedObjectContext) {
@@ -122,6 +141,7 @@ import PhotosUI
             historyPaged.append(contentsOf: list)
             lastHistoryDate = historyPaged.last?.timestamp
             historyHasMore = (list.count == historyPageSize)
+            historyGroups = groupedHistoryPaged()
         }
     }
     func groupedHistoryPaged() -> [(Date, [DietRecordModel])] {

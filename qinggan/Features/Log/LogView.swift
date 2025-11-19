@@ -36,7 +36,16 @@ struct LogView: View {
                 }
                 Card {
                     VStack(alignment: .leading, spacing: 16) {
-                        HStack { Text("识别结果").font(.headline); Spacer(); Text("共 \(vm.recognizedTotalKcal) kcal").foregroundColor(.secondary) }
+                        HStack {
+                            Text("识别结果").font(.headline)
+                            if vm.isRecognizing {
+                                Spacer()
+                                HStack(spacing: 6) { ProgressView(); Text("识别中...").foregroundColor(.secondary) }
+                            } else {
+                                Spacer()
+                                Text("共 \(vm.recognizedTotalKcal) kcal").foregroundColor(.secondary)
+                            }
+                        }
                         if let err = vm.recognitionError { Text(err).foregroundColor(.red) }
                         VStack(alignment: .leading, spacing: 14) {
                             if vm.recognizedItems.isEmpty { Text("暂无食物，点击下方‘添加食物’或重新识别").foregroundColor(.secondary) }
@@ -47,7 +56,8 @@ struct LogView: View {
                         HStack(spacing: 12) {
                             SecondaryButton(title: "添加食物") { vm.recognizedItems.append(FoodItemModel(name: "", weight: 0, kcal: 0, protein: 0, fat: 0, carb: 0)) }
                             SecondaryButton(title: "清空识别") { vm.recognizedItems.removeAll(); vm.recognitionError = nil; vm.selectedImage = nil; vm.aiRawJSON = nil }
-                            PrimaryButton(title: "重试识别") { Task { await vm.runRecognition() } }
+                            PrimaryButton(title: vm.isRecognizing ? "识别中..." : "重试识别") { Task { await vm.runRecognition() } }
+                                .disabled(vm.isRecognizing)
                         }
                     }
                 }
@@ -62,19 +72,24 @@ struct LogView: View {
                 Card { Text("拍照后，AI 会自动识别食物并估计热量，你也可以手动编辑调整。").foregroundColor(.secondary) }
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack { Text("今天的记录").font(.headline); Spacer(); Text("共 \(Int(vm.todayRecords.reduce(0){$0 + $1.items.reduce(0){$0 + $1.kcal}})) kcal").foregroundColor(.secondary) }
-                        ForEach(vm.todayRecords) { rec in
-                            HStack(alignment: .top) {
-                                ZStack { Circle().fill(Color.orange.opacity(0.15)).frame(width: 36, height: 36); Image(systemName: "takeoutbag.and.cup.and.straw.fill").foregroundColor(.orange) }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    mealTag(rec.mealType)
-                                    Text(rec.items.map{ $0.name }.joined(separator: "、")).foregroundColor(.secondary)
-                                    Text("\(Int(rec.items.reduce(0){$0 + $1.kcal})) kcal").foregroundColor(.green)
+                        let totalsToday = macroTotals(vm.todayRecords)
+                        HStack {
+                            Text("今天的记录").font(.headline)
+                            Spacer()
+                            Text("共 \(totalsToday.kcal) kcal · 蛋白 \(totalsToday.protein)g · 脂肪 \(totalsToday.fat)g · 碳水 \(totalsToday.carb)g").foregroundColor(.secondary)
+                        }
+                        let groupsToday = vm.mealGroups(for: vm.todayRecords)
+                        ForEach(groupsToday, id: \.0) { mt, arr in
+                            HStack(alignment: .center) {
+                                mealTag(mt)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(arr.map{ $0.items.map{$0.name}.joined(separator: "、") }.joined(separator: "，")).lineLimit(1).foregroundColor(.secondary)
+                                    let totals = macroTotals(arr)
+                                    Text("共 \(totals.kcal) kcal · 蛋白 \(totals.protein)g · 脂肪 \(totals.fat)g · 碳水 \(totals.carb)g").foregroundColor(.green)
                                 }
                                 Spacer()
-                                Text(timeString(rec.timestamp)).foregroundColor(.secondary)
                             }
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 6)
                         }
                     }
                 }
@@ -97,7 +112,7 @@ struct LogView: View {
                             }.pickerStyle(.segmented)
                             TextField("搜索食物名或备注", text: $vm.searchQuery).textFieldStyle(.roundedBorder)
                         }
-                        let pagedGroups = vm.groupedHistoryPaged()
+                        let pagedGroups = vm.historyGroups
                         HStack(spacing: 8) {
                             Chip(title: "近7天", selected: vm.searchDays == 7) { vm.searchDays = 7 }
                             Chip(title: "近30天", selected: vm.searchDays == 30) { vm.searchDays = 30 }
@@ -107,13 +122,39 @@ struct LogView: View {
                         if pagedGroups.isEmpty {
                             Text("暂无历史饮食记录").foregroundColor(.secondary).padding(.vertical, 16)
                         } else {
-                            LazyVStack(alignment: .leading, spacing: 10) {
+                            LazyVStack(alignment: .leading, spacing: 12) {
                                 ForEach(pagedGroups, id: \.0) { day, records in
-                                    let total = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
-                                    HStack { Text(chineseDay(day)).font(.subheadline).fontWeight(.semibold); Spacer(); Text("合计 \(Int(total)) kcal").foregroundColor(.secondary) }
-                                    ForEach(records) { rec in
-                                        HistoryRecordRow(rec: rec, onDelete: { vm.deleteRecord(context: viewContext, id: rec.id) })
-                                            .onTapGesture { selectedRecord = rec }
+                                    let totalsDay = macroTotals(records)
+                                    HStack {
+                                        Text(chineseDay(day)).font(.subheadline).fontWeight(.semibold)
+                                        Spacer()
+                                        Text("合计 \(totalsDay.kcal) kcal · 蛋白 \(totalsDay.protein)g · 脂肪 \(totalsDay.fat)g · 碳水 \(totalsDay.carb)g").foregroundColor(.secondary)
+                                    }
+                                    VStack(spacing: 6) {
+                                        ForEach(MealType.allCases, id: \.self) { mt in
+                                            let arr = records.filter { $0.mealType == mt }.sorted { $0.timestamp < $1.timestamp }
+                                            if !arr.isEmpty {
+                                                DisclosureGroup {
+                                                    VStack(spacing: 4) {
+                                                        ForEach(arr) { rec in
+                                                            HistoryRecordRow(rec: rec, onDelete: { vm.deleteRecord(context: viewContext, id: rec.id) })
+                                                                .onTapGesture { selectedRecord = rec }
+                                                        }
+                                                    }
+                                                } label: {
+                                                    HStack(alignment: .center, spacing: 8) {
+                                                        mealTag(mt)
+                                                        VStack(alignment: .leading, spacing: 2) {
+                                                            Text(mealNamesLine(arr)).lineLimit(1).foregroundColor(.secondary)
+                                                            let totals = macroTotals(arr)
+                                                            Text("共 \(totals.kcal) kcal · 蛋白 \(totals.protein)g · 脂肪 \(totals.fat)g · 碳水 \(totals.carb)g").foregroundColor(.green).font(.caption)
+                                                        }
+                                                        Spacer()
+                                                    }
+                                                    .padding(.vertical, 6)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(.vertical, 6)
@@ -123,6 +164,8 @@ struct LogView: View {
                                     Spacer()
                                 }
                             }
+                            .animation(nil, value: vm.historyPaged.count)
+                            .transaction { $0.disablesAnimations = true }
                         }
                     }
                 }
@@ -162,7 +205,7 @@ struct LogView: View {
                 .navigationTitle("记录详情")
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: AppEvents.dataDidChange)) { _ in vm.loadTodayRecords(context: viewContext) }
+        
         .sheet(isPresented: $showCamera) { CameraPicker { img in vm.selectedImage = img } }
     }
 }
@@ -179,6 +222,7 @@ private func mealTag(_ type: MealType) -> some View {
     }()
     return Text(text).font(.footnote).padding(.horizontal, 10).padding(.vertical, 4).background(Capsule().fill(color.opacity(0.15))).foregroundColor(color)
 }
+// 之前的历史列表风格：按日期分组后平铺每条记录
 private func chineseDay(_ date: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "zh_CN"); f.dateFormat = "M月d日"; return f.string(from: date) }
 
 struct HistoryRecordRow: View {
@@ -212,4 +256,29 @@ private func decodeImage(_ path: String?) -> UIImage? {
     } else {
         return UIImage(contentsOfFile: path)
     }
+}
+private func mealNamesLine(_ records: [DietRecordModel]) -> String {
+    var parts: [String] = []
+    for r in records {
+        let names = r.items.map { $0.name }.joined(separator: "、")
+        if !names.isEmpty { parts.append(names) }
+    }
+    return parts.joined(separator: "，")
+}
+private func macroTotals(_ records: [DietRecordModel]) -> (kcal: Int, protein: Int, fat: Int, carb: Int) {
+    var kcal = 0, protein = 0, fat = 0, carb = 0
+    for r in records {
+        for it in r.items {
+            kcal += Int(it.kcal)
+            protein += Int(it.protein)
+            fat += Int(it.fat)
+            carb += Int(it.carb)
+        }
+    }
+    return (kcal, protein, fat, carb)
+}
+private func dayTotalKcal(_ records: [DietRecordModel]) -> Int {
+    var sum = 0
+    for r in records { for it in r.items { sum += Int(it.kcal) } }
+    return sum
 }

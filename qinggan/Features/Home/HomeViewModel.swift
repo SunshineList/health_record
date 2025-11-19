@@ -10,11 +10,20 @@ import Combine
     @Published var recent30Steps: [StepStatModel] = []
     @Published var todayKcal: Double = 0
     @Published var todayMealsCount: Int = 0
+    @Published var todayProtein: Int = 0
+    @Published var todayFat: Int = 0
+    @Published var todayCarb: Int = 0
     @Published var observationText: String = "今天表现不错！坚持控制热量与活动。"
     @Published var isRefreshingObservation: Bool = false
     @Published var weightTrend: [(Date, Double)] = []
     @Published var currentWeight: Double?
+    @Published var bmi: Double?
     @Published var calorieTarget: Int = 1800
+    @Published var recentDiet: [DietRecordModel] = []
+    @Published var recentDietLoading: Bool = false
+    @Published var recentDietHasMore: Bool = false
+    private var recentDietLastDate: Date?
+    private let dietPageSize: Int = 12
     private let healthKit = HealthKitService()
     private let notifications = NotificationManager()
     private var settingsObserver: AnyCancellable?
@@ -42,6 +51,9 @@ import Combine
         if let records = try? repo.fetch(range: start...end) {
             todayMealsCount = records.count
             todayKcal = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
+            var p = 0, f = 0, c = 0
+            for r in records { for it in r.items { p += Int(it.protein); f += Int(it.fat); c += Int(it.carb) } }
+            todayProtein = p; todayFat = f; todayCarb = c
         }
     }
     func loadWeight(context: NSManagedObjectContext) {
@@ -58,6 +70,30 @@ import Combine
             let days = daily.keys.sorted()
             weightTrend = days.map { ($0, daily[$0] ?? 0) }
             currentWeight = bodies.last?.weight
+            let h = ConfigStore.shared.load().heightCm
+            if let cw = currentWeight, let hc = h, hc > 0 { let m = hc/100.0; bmi = cw/(m*m) }
+        }
+    }
+    func loadRecentDietInitial(context: NSManagedObjectContext) {
+        guard !recentDietLoading else { return }
+        recentDietLoading = true
+        defer { recentDietLoading = false }
+        let repo = DietRepository(context: context)
+        if let list = try? repo.fetchRecent(limit: dietPageSize, before: nil) {
+            recentDiet = list
+            recentDietLastDate = recentDiet.last?.timestamp
+            recentDietHasMore = (list.count == dietPageSize)
+        }
+    }
+    func loadRecentDietMore(context: NSManagedObjectContext) {
+        guard !recentDietLoading, recentDietHasMore else { return }
+        recentDietLoading = true
+        defer { recentDietLoading = false }
+        let repo = DietRepository(context: context)
+        if let list = try? repo.fetchRecent(limit: dietPageSize, before: recentDietLastDate) {
+            recentDiet.append(contentsOf: list)
+            recentDietLastDate = recentDiet.last?.timestamp
+            recentDietHasMore = (list.count == dietPageSize)
         }
     }
     func buildSummary(context: NSManagedObjectContext) async -> HealthSummary {

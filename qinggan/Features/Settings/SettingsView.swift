@@ -19,7 +19,7 @@ struct SettingsView: View {
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Tuple").foregroundColor(.white).font(.title2).fontWeight(.semibold)
-                            Text("当前体重: \(vm.currentWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  目标体重: \(vm.config.targetWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  需要减: \(vm.weightLost.map{ String(format: "%.1f", $0) } ?? "-") kg")
+                            Text("当前体重: \(vm.currentWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  目标体重: \(vm.config.targetWeight.map{ String(format: "%.1f", $0) } ?? "-") kg  需要减: \(vm.weightLost.map{ String(format: "%.1f", $0) } ?? "-") kg  BMI: \(vm.bmi.map{ String(format: "%.1f", $0) } ?? "-")")
                                 .foregroundColor(.white.opacity(0.95)).font(.title2)
                         }
                         Spacer()
@@ -60,6 +60,13 @@ struct SettingsView: View {
                         HStack { Text("目标体重 (kg)").frame(width: 100, alignment: .leading); TextField("68.0", text: $targetWeightText).textFieldStyle(.roundedBorder).keyboardType(.decimalPad) }
                         HStack { Text("每日热量 (kcal)").frame(width: 100, alignment: .leading); TextField("1800", text: $calorieTargetText).textFieldStyle(.roundedBorder).keyboardType(.numberPad) }
                         Stepper("每日步数目标: \(vm.config.dailyStepGoal)", value: $vm.config.dailyStepGoal, in: 1000...30000, step: 100)
+                        HStack { Text("身高 (cm)").frame(width: 100, alignment: .leading); TextField("175", text: Binding(get: { vm.config.heightCm.map { String(format: "%.0f", $0) } ?? "" }, set: { vm.config.heightCm = Double($0) })).textFieldStyle(.roundedBorder).keyboardType(.decimalPad) }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("BMI 说明").font(.subheadline).foregroundColor(.secondary)
+                            Text("< 18.5：偏瘦  ·  18.5–24.9：正常  ·  25–29.9：超重  ·  ≥ 30：肥胖")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 Card {
@@ -69,6 +76,7 @@ struct SettingsView: View {
                             if let tw = Double(targetWeightText) { vm.config.targetWeight = tw }
                             if let ct = Int(calorieTargetText) { vm.config.dailyCalorieTarget = ct }
                             vm.save()
+                            vm.loadData(context: viewContext)
                         }
                         if !vm.apiKeyMasked.isEmpty {
                             Text("API Key: \(vm.apiKeyMasked)").font(.footnote).foregroundColor(.secondary)

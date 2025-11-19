@@ -1,6 +1,6 @@
 import Foundation
 
-enum MealType: Int, CaseIterable, Codable { case breakfast, lunch, dinner, snack }
+enum MealType: Int, CaseIterable, Codable, Hashable { case breakfast, lunch, dinner, snack }
 
 struct FoodItemModel: Identifiable, Codable { var id = UUID(); var name: String; var weight: Double; var kcal: Double; var protein: Double; var fat: Double; var carb: Double }
 
@@ -10,7 +10,7 @@ struct BodyRecordModel: Identifiable, Codable { var id = UUID(); var date: Date;
 
 struct StepStatModel: Identifiable, Codable { var id = UUID(); var date: Date; var steps: Int }
 
-struct AIConfig: Codable { var host: String; var textModel: String; var visionModel: String; var allowVision: Bool; var allowSummary: Bool; var dailyStepGoal: Int; var targetWeight: Double?; var dailyCalorieTarget: Int; var appearance: String? }
+struct AIConfig: Codable { var host: String; var textModel: String; var visionModel: String; var allowVision: Bool; var allowSummary: Bool; var dailyStepGoal: Int; var targetWeight: Double?; var dailyCalorieTarget: Int; var appearance: String?; var heightCm: Double? }
 struct AppearanceConfig: Codable { var appearance: String? }
 
 enum AIMessageRole: String, Codable { case system, user, assistant }
