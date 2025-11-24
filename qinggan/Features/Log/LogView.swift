@@ -50,7 +50,7 @@ struct LogView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             if vm.recognizedItems.isEmpty { Text("暂无食物，点击下方‘添加食物’或重新识别").foregroundColor(.secondary) }
                             ForEach($vm.recognizedItems) { $item in
-                                Card { FoodItemEditor(item: $item) { vm.recognizedItems.removeAll(where: { $0.id == item.id }) } }
+                                Card { FoodItemEditor(item: $item) { vm.recognizedItems.removeAll(where: { $0.id == item.id }) } .environmentObject(vm) }
                             }
                         }
                         HStack(spacing: 12) {

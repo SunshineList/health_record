@@ -16,6 +16,7 @@ import PhotosUI
     @Published var todayRecords: [DietRecordModel] = []
     @Published var recognitionError: String?
     @Published var isRecognizing: Bool = false
+    @Published var isEstimating: Bool = false
     @Published var historyRecords: [DietRecordModel] = []
     @Published var historyRangeDays: Int = 7
     @Published var mealFilter: MealType? = nil
@@ -37,6 +38,21 @@ import PhotosUI
                 self.historyGroups = self.groupedHistoryPaged()
             }
             .store(in: &cancellables)
+    }
+    func estimateForItem(_ item: FoodItemModel) async -> FoodItemModel {
+        let nameTrimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !nameTrimmed.isEmpty, item.weight > 0 else { recognitionError = "请先填写食物名称和重量"; return item }
+        let cfg = ConfigStore.shared.load()
+        guard !cfg.host.isEmpty, !cfg.textModel.isEmpty else { recognitionError = "请在设置中配置AI服务地址和文本模型"; return item }
+        let client = AIClient(host: cfg.host)
+        do {
+            isEstimating = true
+            defer { isEstimating = false }
+            return try await client.estimateNutritionByText(name: nameTrimmed, grams: item.weight, config: cfg)
+        } catch {
+            recognitionError = "估算失败，请检查网络或稍后重试"
+            return item
+        }
     }
     func importPhoto() {}
     func runRecognition() async {

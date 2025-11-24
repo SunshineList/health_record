@@ -102,25 +102,79 @@ import Combine
         let start = cal.date(byAdding: .day, value: -6, to: end) ?? end
         let dietRepo = DietRepository(context: context)
         var totalKcal: Double = 0
+        var dailyKcal: [Date: Double] = [:]
         if let records = try? dietRepo.fetch(range: start...end) {
             totalKcal = records.reduce(0) { $0 + $1.items.reduce(0) { $0 + $1.kcal } }
+            for r in records {
+                let day = cal.startOfDay(for: r.timestamp)
+                let sum = r.items.reduce(0) { $0 + $1.kcal }
+                dailyKcal[day, default: 0] += sum
+            }
         }
         var avgSteps = 0
+        var minSteps: Int?
+        var maxSteps: Int?
+        var stepArr: [Int] = []
         do {
             try await healthKit.requestAuthorization()
             let steps = try await healthKit.steps(last: 7)
-            if !steps.isEmpty { avgSteps = steps.map { $0.steps }.reduce(0, +) / steps.count }
+            if !steps.isEmpty {
+                stepArr = steps.map { $0.steps }
+                avgSteps = stepArr.reduce(0, +) / stepArr.count
+                minSteps = stepArr.min()
+                maxSteps = stepArr.max()
+            }
         } catch {}
         let bodyRepo = BodyRepository(context: context)
         var avgWeight: Double?
         var avgWaist: Double?
+        var minWeight: Double?
+        var maxWeight: Double?
+        var weightArr: [Double] = []
         if let bodies = try? bodyRepo.fetch(range: start...end) {
             let weights = bodies.compactMap { $0.weight }
             let waists = bodies.compactMap { $0.waist }
-            if !weights.isEmpty { avgWeight = weights.reduce(0, +) / Double(weights.count) }
+            if !weights.isEmpty {
+                weightArr = weights
+                avgWeight = weights.reduce(0, +) / Double(weights.count)
+                minWeight = weights.min()
+                maxWeight = weights.max()
+            }
             if !waists.isEmpty { avgWaist = waists.reduce(0, +) / Double(waists.count) }
         }
-        return HealthSummary(totalKcal: totalKcal, avgSteps: avgSteps, avgWeight: avgWeight, avgWaist: avgWaist)
+        let kcalSeq = dailyKcal.keys.sorted().map { dailyKcal[$0] ?? 0 }
+        let avgKcalPerDay = kcalSeq.isEmpty ? nil : (kcalSeq.reduce(0, +) / Double(kcalSeq.count))
+        let minKcalPerDay = kcalSeq.min()
+        let maxKcalPerDay = kcalSeq.max()
+        func trend(_ arr: [Double]) -> String {
+            if arr.count >= 6 {
+                let a = arr.prefix(3).reduce(0, +) / Double(min(3, arr.count))
+                let b = arr.suffix(3).reduce(0, +) / Double(min(3, arr.count))
+                if b - a > 0.5 { return "上升" }
+                if a - b > 0.5 { return "下降" }
+                return "稳定"
+            }
+            if let first = arr.first, let last = arr.last {
+                if last - first > 0.5 { return "上升" }
+                if first - last > 0.5 { return "下降" }
+            }
+            return "稳定"
+        }
+        let kcalTrend = trend(kcalSeq)
+        let stepsTrend = trend(stepArr.map { Double($0) })
+        let weightTrend = trend(weightArr)
+        var s = HealthSummary(totalKcal: totalKcal, avgSteps: avgSteps, avgWeight: avgWeight, avgWaist: avgWaist)
+        s.avgKcalPerDay = avgKcalPerDay
+        s.minKcalPerDay = minKcalPerDay
+        s.maxKcalPerDay = maxKcalPerDay
+        s.minSteps = minSteps
+        s.maxSteps = maxSteps
+        s.minWeight = minWeight
+        s.maxWeight = maxWeight
+        s.kcalTrend = kcalTrend
+        s.stepsTrend = stepsTrend
+        s.weightTrend = weightTrend
+        return s
     }
     func generateObservation(context: NSManagedObjectContext, force: Bool = false) async {
         let cfg = ConfigStore.shared.load()
@@ -130,7 +184,7 @@ import Combine
         defer { isRefreshingObservation = false }
         let client = AIClient(host: cfg.host)
         let summary = await buildSummary(context: context)
-        let msg = AIMessage(role: .user, content: "请根据最近7天的饮食热量、步数、体重与腰围，生成一段中文的今日观察，语气温和、鼓励，控制在两至三句话。", date: Date())
+        let msg = AIMessage(role: .user, content: "请根据最近7天的卡路里、步数、体重的统计（均值/最高/最低）与趋势，输出中文 2–4 句，先简要总结，再给出两条建议（饮食+运动），语气温和、可执行。", date: Date())
         if let resp = try? await client.sendChat(messages: [msg], summary: summary, config: cfg) { observationText = resp.text; ObservationStore.shared.save(resp.text, for: Date()) }
     }
     func scheduleReminders() async {

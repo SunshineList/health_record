@@ -75,13 +75,70 @@ final class AIClient: AIClientProtocol {
         }
         return AIDishRecognitionResponse(items: items, rawJSON: resp)
     }
+    func estimateNutritionByText(name: String, grams: Double, config: AIConfig) async throws -> FoodItemModel {
+        let apiKey = KeychainService.shared.getAPIKey()
+        let systemMsg: [String: Any] = [
+            "role": "system",
+            "content": "你是一个营养估算助手。根据食物中文名称与克重，估算总热量与宏量营养（蛋白/脂肪/碳水，单位克）。输出严格 JSON 对象，不附加任何文本：{\"name\":中文名,\"weight\":克,\"kcal\":千卡,\"protein\":克,\"fat\":克,\"carb\":克}。宏量比例贴合食物类别；确保能量守恒：kcal ≈ protein*4 + carb*4 + fat*9（允许±10%）。所有数值为正；无法精确时给出合理估算且不留空值。"
+        ]
+        let userMsg: [String: Any] = [
+            "role": "user",
+            "content": "食物：\(name)；重量：\(Int(grams)) 克。请直接给出严格 JSON。"
+        ]
+        let payload: [String: Any] = [
+            "model": config.textModel,
+            "messages": [systemMsg, userMsg],
+            "response_format": ["type": "json_object"]
+        ]
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let resp = try await request(path: "/v1/chat/completions", body: body, apiKey: apiKey)
+        if let json = try? JSONSerialization.jsonObject(with: resp) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let first = choices.first,
+           let message = first["message"] as? [String: Any],
+           let content = message["content"] as? String,
+           let data = content.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let n = (obj["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? name
+            let w = obj["weight"] as? Double ?? grams
+            let kcal = obj["kcal"] as? Double ?? 0
+            let p = obj["protein"] as? Double ?? 0
+            let f = obj["fat"] as? Double ?? 0
+            let c = obj["carb"] as? Double ?? 0
+            return FoodItemModel(name: n, weight: w, kcal: kcal, protein: p, fat: f, carb: c)
+        }
+        if let content = ((try? JSONSerialization.jsonObject(with: resp) as? [String: Any])?["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any],
+           let text = content["content"] as? String,
+           let range = text.range(of: "\\{[\\s\\S]*\\}", options: .regularExpression),
+           let data = String(text[range]).data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let n = (obj["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? name
+            let w = obj["weight"] as? Double ?? grams
+            let kcal = obj["kcal"] as? Double ?? 0
+            let p = obj["protein"] as? Double ?? 0
+            let f = obj["fat"] as? Double ?? 0
+            let c = obj["carb"] as? Double ?? 0
+            return FoodItemModel(name: n, weight: w, kcal: kcal, protein: p, fat: f, carb: c)
+        }
+        return FoodItemModel(name: name, weight: grams, kcal: 0, protein: 0, fat: 0, carb: 0)
+    }
     func sendChat(messages: [AIMessage], summary: HealthSummary?, config: AIConfig) async throws -> AIChatResponse {
         let apiKey = KeychainService.shared.getAPIKey()
         var arr: [[String: Any]] = []
         var content = "你是一位资深健康生活方式专家（营养🥗、运动🏃‍♂️、睡眠🛌、压力管理🧘、行为改变🔁）。请基于用户最近数据与提问，给出具体、可执行、温和的中文建议：\n1）不做医疗诊断与药物建议❌；\n2）建议包含量化目标（数值/时间窗口/频次），示例：‘晚间散步20分钟，每周5次’📅；\n3）结构清晰，最多3条要点（每条前置表情符号以增强可读性）✨；\n4）如信息不足，先简短澄清再给出可行默认方案🤝；\n5）避免夸大承诺与绝对化措辞⚖️。"
         if let s = summary {
-            let w = s.avgWeight.map { String(format: "%.1f", $0) } ?? "—"
-            content += "\n用户最近数据：\n- 总热量：\(Int(s.totalKcal)) 千卡\n- 日均步数：\(s.avgSteps) 步\n- 日均体重：\(w) kg\n"
+            let wAvg = s.avgWeight.map { String(format: "%.1f", $0) } ?? "—"
+            let wMin = s.minWeight.map { String(format: "%.1f", $0) } ?? "—"
+            let wMax = s.maxWeight.map { String(format: "%.1f", $0) } ?? "—"
+            let kAvg = s.avgKcalPerDay.map { String(format: "%.0f", $0) } ?? "—"
+            let kMin = s.minKcalPerDay.map { String(format: "%.0f", $0) } ?? "—"
+            let kMax = s.maxKcalPerDay.map { String(format: "%.0f", $0) } ?? "—"
+            let sMin = s.minSteps.map { String($0) } ?? "—"
+            let sMax = s.maxSteps.map { String($0) } ?? "—"
+            let kTrend = s.kcalTrend ?? "—"
+            let stepTrend = s.stepsTrend ?? "—"
+            let weightTrend = s.weightTrend ?? "—"
+            content += "\n最近7天统计：\n- 热量（每日）：均值 \(kAvg) kcal，最高 \(kMax)，最低 \(kMin)\n- 步数：均值 \(s.avgSteps) 步，最高 \(sMax)，最低 \(sMin)\n- 体重：均值 \(wAvg) kg，最高 \(wMax)，最低 \(wMin)\n- 趋势：热量 \(kTrend)，步数 \(stepTrend)，体重 \(weightTrend)\n\n请输出中文 2–4 句：先简要总结上述统计与趋势，再给出两条建议（饮食+运动），建议需可执行（含具体量化与频次）。"
         }
         let systemMsg = ["role": "system", "content": content]
         arr.append(systemMsg)

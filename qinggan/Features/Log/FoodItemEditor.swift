@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct FoodItemEditor: View {
+    @EnvironmentObject var vm: LogViewModel
     @Binding var item: FoodItemModel
     let onDelete: () -> Void
     var body: some View {
@@ -14,7 +15,12 @@ struct FoodItemEditor: View {
             MetricRow(title: "蛋白", value: $item.protein, unit: "g", step: 1, range: 0...300)
             MetricRow(title: "脂肪", value: $item.fat, unit: "g", step: 1, range: 0...300)
             MetricRow(title: "碳水", value: $item.carb, unit: "g", step: 1, range: 0...300)
-            HStack { Spacer(); Button(action: onDelete) { Text("删除").foregroundColor(.red) } }
+            HStack {
+                Button(action: { Task { let r = await vm.estimateForItem(item); item = r } }) { Text(vm.isEstimating ? "估算中..." : "AI估算") }
+                    .disabled(vm.isEstimating)
+                Spacer()
+                Button(action: onDelete) { Text("删除").foregroundColor(.red) }
+            }
         }
         .padding(.vertical, 4)
     }

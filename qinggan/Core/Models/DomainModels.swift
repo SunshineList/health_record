@@ -19,7 +19,22 @@ struct AIMessage: Identifiable, Codable { var id = UUID(); var role: AIMessageRo
 
 struct ChatThread: Identifiable, Codable { var id: UUID; var lastDate: Date }
 
-struct HealthSummary: Codable { var totalKcal: Double; var avgSteps: Int; var avgWeight: Double?; var avgWaist: Double? }
+struct HealthSummary: Codable {
+    var totalKcal: Double
+    var avgSteps: Int
+    var avgWeight: Double?
+    var avgWaist: Double?
+    var avgKcalPerDay: Double? = nil
+    var minKcalPerDay: Double? = nil
+    var maxKcalPerDay: Double? = nil
+    var minSteps: Int? = nil
+    var maxSteps: Int? = nil
+    var minWeight: Double? = nil
+    var maxWeight: Double? = nil
+    var kcalTrend: String? = nil
+    var stepsTrend: String? = nil
+    var weightTrend: String? = nil
+}
 
 struct AIDishRecognitionResponse: Codable { var items: [FoodItemModel]; var rawJSON: Data }
 

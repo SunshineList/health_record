@@ -60,7 +60,14 @@ struct SettingsView: View {
                         HStack { Text("目标体重 (kg)").frame(width: 100, alignment: .leading); TextField("68.0", text: $targetWeightText).textFieldStyle(.roundedBorder).keyboardType(.decimalPad) }
                         HStack { Text("每日热量 (kcal)").frame(width: 100, alignment: .leading); TextField("1800", text: $calorieTargetText).textFieldStyle(.roundedBorder).keyboardType(.numberPad) }
                         Stepper("每日步数目标: \(vm.config.dailyStepGoal)", value: $vm.config.dailyStepGoal, in: 1000...30000, step: 100)
-                        HStack { Text("身高 (cm)").frame(width: 100, alignment: .leading); TextField("175", text: Binding(get: { vm.config.heightCm.map { String(format: "%.0f", $0) } ?? "" }, set: { vm.config.heightCm = Double($0) })).textFieldStyle(.roundedBorder).keyboardType(.decimalPad) }
+                        HStack {
+                            Text("身高 (cm)").frame(width: 100, alignment: .leading)
+                            TextField("175", text: Binding(get: { vm.config.heightCm.map { String(format: "%.0f", $0) } ?? "" }, set: { vm.config.heightCm = Double($0.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespacesAndNewlines)) }))
+                                .textFieldStyle(.roundedBorder)
+                                .keyboardType(.decimalPad)
+                                .onSubmit { vm.save() }
+                        }
+                        .onChange(of: vm.config.heightCm) { _ in vm.save() }
                         VStack(alignment: .leading, spacing: 6) {
                             Text("BMI 说明").font(.subheadline).foregroundColor(.secondary)
                             Text("< 18.5：偏瘦  ·  18.5–24.9：正常  ·  25–29.9：超重  ·  ≥ 30：肥胖")
